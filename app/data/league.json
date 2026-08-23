@@ -1,0 +1,80 @@
+{
+ "teams": 12,
+ "budget": 200,
+ "rosterSize": 16,
+ "benchSize": 7,
+ "starters": {
+  "QB": 1,
+  "RB": 2,
+  "WR": 2,
+  "TE": 1,
+  "FLEX": 1,
+  "FLEX2": 0,
+  "K": 1,
+  "DEF": 1
+ },
+ "flexType": "WR/RB/TE",
+ "flexType2": "WR/TE",
+ "starterPct": 0.88,
+ "method": "Starter/Bench",
+ "allowNegative": true,
+ "marketSite": "Yahoo",
+ "scoring": {
+  "QB": {
+   "passAtt": 0,
+   "cmp": 0,
+   "passYds": 0.04,
+   "passTD": 6,
+   "int": -3,
+   "rushAtt": 0,
+   "rushYds": 0.1,
+   "rushTD": 6,
+   "rec": 0,
+   "recYds": 0,
+   "recTD": 0,
+   "fum": -2
+  },
+  "RB": {
+   "passAtt": 0,
+   "cmp": 0,
+   "passYds": 0,
+   "passTD": 0,
+   "int": 0,
+   "rushAtt": 0,
+   "rushYds": 0.1,
+   "rushTD": 6,
+   "rec": 1,
+   "recYds": 0.1,
+   "recTD": 6,
+   "fum": -2
+  },
+  "WR": {
+   "passAtt": 0,
+   "cmp": 0,
+   "passYds": 0,
+   "passTD": 0,
+   "int": 0,
+   "rushAtt": 0,
+   "rushYds": 0.1,
+   "rushTD": 6,
+   "rec": 1,
+   "recYds": 0.1,
+   "recTD": 6,
+   "fum": -2
+  },
+  "TE": {
+   "passAtt": 0,
+   "cmp": 0,
+   "passYds": 0,
+   "passTD": 0,
+   "int": 0,
+   "rushAtt": 0,
+   "rushYds": 0.1,
+   "rushTD": 6,
+   "rec": 1,
+   "recYds": 0.1,
+   "recTD": 6,
+   "fum": -2
+  }
+ }
+}

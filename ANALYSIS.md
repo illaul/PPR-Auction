@@ -121,8 +121,9 @@ inflation = (Σ projected $ of every valued player − Σ $ actually paid so far
 ```
 
 Because Σ projected $ *is* the league budget (step 5), the numerator is literally the money still
-on the table. Every `Inflated $` cell is `projected $ × inflation`, so overpays early make everyone
-left more expensive, and bargains deflate the board. The same sheet derives, per position, the
+on the table. Every `Inflated $` cell is `projected $ × inflation`. Note the direction: an **overpay
+drains money faster than it removes value, so everyone left gets cheaper** (deflation), and a
+bargain leaves more money chasing the same value, pushing the rest of the board up. The same sheet derives, per position, the
 best and second-best player still available, the dropoff between them, average value remaining,
 and the share of each position's dollars already spent. `Teams!J` gives each manager's true
 max bid: `remaining budget − (empty roster spots − 1)`.
