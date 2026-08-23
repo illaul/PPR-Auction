@@ -1,45 +1,67 @@
-# Deflator — app
+# Deflator — live auction assistant
 
-The valuation engine is here and complete; the UI waits on the Claude Design
-canvas (`Deflator.dc.html`).
-
-```
-app/
-  data/      exported from the workbook by tools/export_players.py
-  src/engine/valuation.ts        the model: baselines, bilinear pricing, inflation, max bid
-  src/engine/valuation.check.ts  checks it against the workbook's own numbers
-```
-
-Run the checks:
+The screens in `Deflator.dc.html`, built for real: a single page that prices every
+player against your league, watches the money leave the room, and tells you the
+most you should pay for whoever is on the block.
 
 ```bash
-python3 tools/export_players.py <workbook.xlsm> app/data   # refresh the data
-node --experimental-strip-types app/src/engine/valuation.check.ts
+cd app
+npm install
+npm run dev          # http://localhost:5173
+npm run build        # static bundle in app/dist
+npm run check        # engine vs. the workbook it was ported from
+node --experimental-strip-types src/state/names.check.ts   # ESPN name matching
 ```
 
-Current result: prices match the workbook to $0.000000 across all 576 players,
-and the priced pool sums to exactly $2,400.00.
+Open it and pick a starting point: **Open the board** drops you into a mid-auction
+demo driven by the real player pool, **Start empty** waits for the extension or
+for you to type picks in yourself.
 
-## What the engine gives the UI
+## What is on screen
 
-| call | returns |
+| region | what it answers |
 | --- | --- |
-| `priceBoard(players, league)` | every player priced, plus baselines and the two price factors |
-| `inflation(board, sales)` | multiplier for every price given what has sold so far |
-| `maxBid(remaining, filled, league)` | the most a team can bid and still fill its roster |
-| `dropoff(board, pos, sold, inflate)` | best remaining at a position and the gap to the next |
+| top strip | connection, inflation, budget, true max bid, slots, board depth |
+| the block | the one number that matters, current bid, walk-away, and what the sale does to inflation |
+| bid-o-meter | where the live bid sits against your value and against the market |
+| verdict | bid or pass, with the reason and the alternative you would buy instead |
+| my roster | filled slots at what you paid, open slots at what the plan budgets |
+| best remaining | the best player left at each position and the dollar dropoff to the next |
+| model vs market | where this model and the site's prices disagree, both directions |
+| who can outbid me | every team's true max bid and what they still need |
+| drawer (⌃T) | the whole pool: search, filter, sort by surplus, nominate, record a sale |
 
-`league.method` switches between the bilinear `Starter/Bench` model and flat
-`Average VBD`. `league.starterPct` is the stars-and-scrubs dial.
+Four states share the same board: disconnected, waiting for a nomination, your
+turn to nominate, and just won — all driven by the live data, not by a mode switch.
 
-## Direction of inflation
+## How it is wired
 
-An overpay drains money faster than it removes value, so the rest of the board
-gets **cheaper**. A bargain leaves more money chasing the same value and pushes
-the board **up**. The UI should label the multiplier accordingly.
+```
+data/players.json ─┐
+data/league.json ──┼─► engine/valuation.ts ──► state/model.ts ──► ui/*
+                   │        prices, baselines,     view: teams, slots,
+                   │        inflation, max bid     verdict, dropoffs
+sync/* ────────────┘
+  extension.ts  ESPN draft room, relayed by the Chrome extension (<1s)
+  demo.ts       a scripted auction off the real pool, for practice
+  manual        type the price in the drawer when nothing is relaying
+```
 
-## Not yet built
+Every price on screen is `model price × inflation`, and inflation is
+`(money left in the league) ÷ (value left on the board)`. **An overpay drains
+money faster than it removes value, so the rest of the board gets cheaper.** A
+bargain does the reverse.
 
-- ESPN sync (Chrome extension content script + polling fallback) — see
-  `docs/design-prompt.md` for the architecture.
-- Everything visual.
+## Design system
+
+`src/styles/organic.css` is the Organic design system exported from Claude
+Design, vendored unchanged — it owns the palette, the type pairing (Caprasimo /
+Figtree) and the component primitives. `src/styles/app.css` adds only what the
+board needs on top of those tokens.
+
+## Known gaps
+
+- The extension's ESPN selectors are unverified against a live draft room —
+  see `extension/README.md`.
+- Values come from the projections exported out of the workbook. Refresh them
+  with `tools/export_players.py` before a real draft.

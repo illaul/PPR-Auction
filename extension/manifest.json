@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Deflator — ESPN auction relay",
+  "version": "1.0.0",
+  "description": "Relays your ESPN auction draft room into the Deflator assistant. Read-only: it never places a bid.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://fantasy.espn.com/*",
+    "http://localhost:5173/*",
+    "http://localhost:4173/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_popup": "popup.html", "default_title": "Deflator" },
+  "content_scripts": [
+    {
+      "matches": ["https://fantasy.espn.com/football/*"],
+      "js": ["content-espn.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["http://localhost:5173/*", "http://localhost:4173/*"],
+      "js": ["content-bridge.js"],
+      "run_at": "document_start"
+    }
+  ]
+}

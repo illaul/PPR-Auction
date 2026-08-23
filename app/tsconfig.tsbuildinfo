@@ -1,0 +1,1 @@
+{"root":["./src/App.tsx","./src/main.tsx","./src/engine/valuation.check.ts","./src/engine/valuation.ts","./src/state/model.ts","./src/state/names.check.ts","./src/state/names.ts","./src/state/seed.ts","./src/sync/demo.ts","./src/sync/extension.ts","./src/sync/types.ts","./src/ui/Board.tsx","./src/ui/PlayerDetail.tsx","./src/ui/Setup.tsx","./src/ui/bits.tsx"],"version":"5.9.3"}

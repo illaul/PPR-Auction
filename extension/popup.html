@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caprasimo&family=Figtree:wght@400;600;700&display=swap">
+<style>
+  :root { --ink:#201e1d; --screen:#f5ead8; --panel:#ebddc5; --raised:#f9f4ed; --rust:#c67139;
+          --olive:#728157; --olive-deep:#3d472b; --olive-pale:#f0fae1; --olive-line:#aebf92;
+          --alarm:#a03b2b; --alarm-deep:#8f3325; --line:rgba(32,30,29,0.14); }
+  @keyframes blip { 0%,100%{opacity:1} 50%{opacity:.3} }
+  * { box-sizing: border-box; }
+  body { width:400px; height:600px; margin:0; padding:26px 24px; background:var(--screen); color:var(--ink);
+         font-family:"Figtree",system-ui,sans-serif; font-size:15px; font-variant-numeric:tabular-nums;
+         display:flex; flex-direction:column; gap:20px; }
+  .brand { display:flex; align-items:baseline; gap:9px; }
+  .brand b { font-family:"Caprasimo",system-ui,serif; font-weight:400; font-size:24px; letter-spacing:-0.02em; }
+  .brand span { font-size:11px; color:rgba(32,30,29,0.45); }
+  .card { padding:16px; border-radius:20px; display:flex; flex-direction:column; gap:6px;
+          background:var(--olive-pale); border:1px solid var(--olive-line); }
+  .card.off { background:var(--raised); border-color:var(--line); }
+  .row { display:flex; align-items:center; gap:8px; }
+  .dot { width:9px; height:9px; border-radius:999px; background:var(--olive); animation:blip 2s ease-in-out infinite; }
+  .dot.off { background:var(--alarm); animation:none; }
+  .state { font-size:12px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--olive-deep); }
+  .state.off { color:var(--alarm-deep); }
+  .league { font-family:"Caprasimo",system-ui,serif; font-weight:400; font-size:20px; }
+  .muted { font-size:12.5px; color:rgba(32,30,29,0.62); }
+  .stats { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .stat { padding:13px; background:var(--panel); border-radius:16px; }
+  .stat .l { font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:rgba(32,30,29,0.55); }
+  .stat .v { font-size:26px; font-weight:700; }
+  .perms { display:flex; flex-direction:column; gap:8px; }
+  .perm { display:flex; justify-content:space-between; align-items:center; padding:10px 13px;
+          background:var(--raised); border:1px solid rgba(32,30,29,0.12); border-radius:14px; font-size:12.5px; }
+  .perm b { font-size:12px; color:var(--olive-deep); }
+  .perm b.never { color:rgba(32,30,29,0.5); }
+  .lab { font-size:10.5px; letter-spacing:.13em; text-transform:uppercase; color:rgba(32,30,29,0.55); }
+  .foot { margin-top:auto; display:flex; flex-direction:column; gap:10px; }
+  .cta { font-size:14px; font-weight:600; padding:14px; border-radius:999px; background:var(--rust);
+         color:#fff2eb; border:0; text-align:center; cursor:pointer; font-family:inherit; }
+  .fine { font-size:11.5px; color:rgba(32,30,29,0.5); text-align:center; }
+</style>
+</head>
+<body>
+  <div class="brand"><b>Deflator</b><span id="version">v1.0</span></div>
+
+  <div class="card off" id="status-card">
+    <div class="row"><span class="dot off" id="dot"></span><span class="state off" id="state">Not relaying</span></div>
+    <div class="league" id="league">No draft room open</div>
+    <div class="muted" id="league-meta">Open your ESPN auction draft room in a tab.</div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="l">Picks relayed</div><div class="v" id="relayed">0</div></div>
+    <div class="stat"><div class="l">Latency</div><div class="v" id="latency">—</div></div>
+  </div>
+
+  <div class="perms">
+    <span class="lab">Permissions</span>
+    <div class="perm"><span>Read the draft room tab</span><b>granted</b></div>
+    <div class="perm"><span>Read league settings</span><b>granted</b></div>
+    <div class="perm"><span>Place bids</span><b class="never">never asked</b></div>
+  </div>
+
+  <div class="foot">
+    <button class="cta" id="open">Open assistant</button>
+    <div class="fine">Picks stay on this machine.</div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
