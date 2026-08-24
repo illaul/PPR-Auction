@@ -27,6 +27,21 @@ def slug(name):
     return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
 
 
+def unique_id(name, pos, taken):
+    """Ids key everything downstream, so two players may never share one.
+
+    A handful of players are listed at two positions (Connor Heyward is on both
+    the RB and TE sheets); the position breaks the tie.
+    """
+    base = slug(name)
+    if base not in taken:
+        taken.add(base)
+        return base
+    with_pos = f"{base}-{pos.lower()}"
+    taken.add(with_pos)
+    return with_pos
+
+
 def num(v):
     return round(v, 4) if isinstance(v, (int, float)) else 0
 
@@ -85,6 +100,7 @@ def main():
     wb = openpyxl.load_workbook(src, data_only=True)
 
     players, expected = [], {}
+    taken = set()
     prices = market(wb)
     for pos in SKILL:
         ws = wb[pos]
@@ -93,12 +109,12 @@ def main():
             name = ws.cell(r, 2).value
             if not name:
                 continue
-            pid = slug(name)
+            pid = unique_id(name, pos, taken)
             players.append({
                 "id": pid, "name": name, "pos": pos,
                 "team": ws.cell(r, 6).value, "bye": ws.cell(r, 5).value,
                 "stats": ZERO | {k: num(ws.cell(r, c).value) for k, c in cols.items()},
-                "market": prices.get(pid, {"yahoo": 0, "espn": 0, "nffc": 0}),
+                "market": prices.get(slug(name), {"yahoo": 0, "espn": 0, "nffc": 0}),
             })
             expected[pid] = round(ws.cell(r, 20).value, 6)
     for pos in ("K", "DEF"):
@@ -107,12 +123,12 @@ def main():
             name = ws.cell(r, 2).value
             if not name:
                 continue
-            pid = slug(name)
+            pid = unique_id(name, pos, taken)
             players.append({
                 "id": pid, "name": name, "pos": pos,
                 "team": ws.cell(r, 6).value, "bye": ws.cell(r, 5).value,
                 "fpts": num(ws.cell(r, 10).value), "stats": None,
-                "market": prices.get(pid, {"yahoo": 0, "espn": 0, "nffc": 0}),
+                "market": prices.get(slug(name), {"yahoo": 0, "espn": 0, "nffc": 0}),
             })
             expected[pid] = round(ws.cell(r, 20).value, 6)
 

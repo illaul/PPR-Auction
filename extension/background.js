@@ -1,4 +1,6 @@
 /** Routes draft-room events to any open assistant tab, and keeps a small count for the popup. */
+import { fetchProjections } from "./projections.js";
+
 const APP_MATCH = ["http://localhost:5173/*", "http://localhost:4173/*"];
 let relayed = 0;
 let league = null;
@@ -13,6 +15,12 @@ chrome.runtime.onMessage.addListener((msg, sender, respond) => {
     });
     respond?.({ ok: true });
     return true;
+  }
+  if (msg?.kind === "fetchProjections") {
+    fetchProjections(msg.season)
+      .then((players) => respond?.({ players }))
+      .catch((err) => respond?.({ error: String(err.message ?? err) }));
+    return true; // answered asynchronously
   }
   if (msg?.kind === "league") { league = msg.league; respond?.({ ok: true }); return true; }
   if (msg?.kind === "status") { respond?.({ relayed, league, from: sender?.tab?.id ?? null }); return true; }

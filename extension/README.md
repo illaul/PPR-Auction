@@ -24,6 +24,26 @@ The page and the content script live in separate JavaScript worlds, so presence
 is announced by handshake: the app posts `hello`, the bridge answers. Nothing is
 stored, and nothing leaves the machine.
 
+## Refreshing projections
+
+The assistant's **Refresh data** button asks this extension for season
+projections. It fetches ESPN's public PPR default view
+(`leaguedefaults/3?view=kona_player_info`) — no login, no league id, because we
+only want stat lines; the app applies your league's scoring itself.
+
+`projections.js` holds two maps that are ESPN's to change: `proTeamId` →
+abbreviation, and stat id → stat name. If a pull comes back looking wrong, open
+the service worker console and run:
+
+```js
+__deflatorRawStats()
+```
+
+It prints the raw stats object of the first mapped player so the ids can be
+re-read. Whatever this returns is checked on the app side before it is applied —
+too few players, zeroed stats, or impossible totals are refused and the old
+numbers stay.
+
 ## The part that needs one pass on a live draft
 
 ESPN publishes no API for the draft room, so `content-espn.js` reads class names

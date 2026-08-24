@@ -19,7 +19,18 @@ const cases: [string, string | null, string?][] = [
   ["Texans", "houston-texans"],
   ["Houston D/ST", "houston-texans"],
   ["Some Guy Who Retired", null],
+  // Listed at two positions in the source data: the position breaks the tie.
+  ["Connor Heyward", null],
+  ["Connor Heyward", "connor-heyward", "RB"],
+  ["Connor Heyward", "connor-heyward-te", "TE"],
 ];
+
+const ids = new Set(players.map((p) => p.id));
+if (ids.size !== players.length) {
+  console.log(`FAIL  every player has a unique id — ${players.length} players, ${ids.size} ids`);
+  process.exit(1);
+}
+console.log(`  ok  every player has a unique id (${ids.size})`);
 
 let failed = 0;
 for (const [input, want, meta] of cases) {

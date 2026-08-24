@@ -260,3 +260,19 @@ body {
 .watch .v { font-size: 12px; color: var(--ink-50); }
 .watch .m { font-size: 13px; font-weight: 700; color: var(--rust-deep); }
 .idle-box { width: 100%; margin-top: 6px; padding: 14px 16px; border: 1px dashed rgba(32, 30, 29, 0.22); border-radius: 16px; display: flex; align-items: baseline; gap: 14px; }
+
+/* ── refresh control ───────────────────────────────────────────────────── */
+.refresh { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.refresh-btn { display: inline-flex; align-items: center; gap: 7px; }
+.refresh-btn[disabled] { opacity: .6; cursor: progress; }
+.refresh-btn .spin { display: inline-block; animation: turn 1s linear infinite; }
+@keyframes turn { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .refresh-btn .spin { animation: none; } }
+.refresh-status { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; font-size: 11.5px; }
+.refresh-when { color: var(--ink-50); }
+.refresh-ok { color: var(--olive-mid); font-weight: 600; }
+.refresh-err { color: var(--alarm-deep); font-weight: 600; max-width: 460px; }
+.refresh-links { display: flex; gap: 10px; }
+.linky { background: none; border: 0; padding: 0; cursor: pointer; font: inherit; font-size: 11.5px;
+         color: var(--rust-deep); text-decoration: underline; text-underline-offset: 2px; }
+.linky:hover { color: var(--rust); }

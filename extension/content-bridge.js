@@ -13,7 +13,19 @@ const announce = () =>
 
 window.addEventListener("message", (ev) => {
   if (ev.source !== window) return;
-  if (ev.data?.source === "deflator-app" && ev.data.type === "hello") announce();
+  if (ev.data?.source !== "deflator-app") return;
+
+  if (ev.data.type === "hello") announce();
+
+  if (ev.data.type === "refresh") {
+    chrome.runtime.sendMessage({ kind: "fetchProjections", season: ev.data.season }, (res) => {
+      const error = chrome.runtime.lastError?.message ?? res?.error;
+      window.postMessage(
+        { source: "deflator-extension", type: "projections", players: res?.players, error },
+        window.location.origin,
+      );
+    });
+  }
 });
 
 chrome.runtime.onMessage.addListener((msg) => {

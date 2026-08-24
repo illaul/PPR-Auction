@@ -19,31 +19,36 @@ function norm(name: string): string {
  * position, and give up rather than guess.
  */
 export function makeResolver(players: Player[]) {
-  const exact = new Map<string, string>();
+  // A few players are listed at two positions, so every index maps to a list.
+  const exact = new Map<string, string[]>();
   const byLast = new Map<string, string[]>();
+  const posOf = new Map(players.map((p) => [p.id, p.pos as string]));
+  const add = (map: Map<string, string[]>, key: string, id: string) =>
+    map.set(key, [...(map.get(key) ?? []), id]);
+
   for (const p of players) {
-    exact.set(norm(p.name), p.id);
-    const last = norm(p.name).split(" ").slice(-1)[0];
-    byLast.set(last, [...(byLast.get(last) ?? []), p.id]);
+    add(exact, norm(p.name), p.id);
+    add(byLast, norm(p.name).split(" ").slice(-1)[0], p.id);
     if (p.pos === "DEF") {
       // "Houston Texans" also answers to "Texans" and "Houston D/ST".
       const words = norm(p.name).split(" ");
-      exact.set(words[words.length - 1], p.id);
-      exact.set(`${words.slice(0, -1).join(" ")} dst`, p.id);
+      add(exact, words[words.length - 1], p.id);
+      add(exact, `${words.slice(0, -1).join(" ")} dst`, p.id);
     }
   }
-  return (name: string, meta?: string | null): string | null => {
-    const n = norm(name.replace(/\bd\/?st\b/i, "dst"));
-    const hit = exact.get(n);
-    if (hit) return hit;
-    const last = n.split(" ").slice(-1)[0];
-    const candidates = byLast.get(last) ?? [];
-    if (candidates.length === 1) return candidates[0];
-    if (candidates.length > 1 && meta) {
-      const pos = meta.toUpperCase().match(/\b(QB|RB|WR|TE|K|D\/?ST)\b/)?.[1]?.replace("/", "");
-      const byPos = candidates.filter((id) => players.find((p) => p.id === id)?.pos === (pos === "DST" ? "DEF" : pos));
-      if (byPos.length === 1) return byPos[0];
-    }
-    return null;
+
+  /** One candidate wins outright; several need the position to break the tie. */
+  const settle = (ids: string[], meta?: string | null): string | null => {
+    if (ids.length === 1) return ids[0];
+    if (ids.length === 0 || !meta) return null;
+    const raw = meta.toUpperCase().match(/\b(QB|RB|WR|TE|K|D\/?ST)\b/)?.[1]?.replace("/", "");
+    if (!raw) return null;
+    const want = raw === "DST" ? "DEF" : raw;
+    const hits = ids.filter((id) => posOf.get(id) === want);
+    return hits.length === 1 ? hits[0] : null;
   };
+
+  return (name: string, meta?: string | null): string | null =>
+    settle(exact.get(norm(name.replace(/\bd\/?st\b/i, "dst"))) ?? [], meta)
+    ?? settle(byLast.get(norm(name).split(" ").slice(-1)[0]) ?? [], meta);
 }

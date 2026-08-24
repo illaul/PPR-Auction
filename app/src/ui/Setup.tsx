@@ -2,13 +2,18 @@ import { useEffect, useMemo, useState } from "react";
 import type { Board, League, SkillPos } from "../engine/valuation";
 import { money } from "./bits";
 
+const LEAGUE_URL = "deflator.leagueUrl";
+
 export default function Setup({ league, board, onLeague, onOpen }: {
   league: League;
   board: Board;
   onLeague: (l: League) => void;
   onOpen: (withDemoData: boolean) => void;
 }) {
-  const [url, setUrl] = useState("fantasy.espn.com/football/league?leagueId=1184402");
+  const [url, setUrl] = useState(() => {
+    try { return localStorage.getItem(LEAGUE_URL) ?? ""; } catch { return ""; }
+  });
+  const [saved, setSaved] = useState(false);
   const extension = useExtensionHandshake();
 
   const split = useMemo(() => {
@@ -41,11 +46,19 @@ export default function Setup({ league, board, onLeague, onOpen }: {
           <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
             <span className="field-lab">ESPN league URL</span>
             <div className="url-row">
-              <input className="url-in" value={url} onChange={(e) => setUrl(e.target.value)} aria-label="ESPN league URL" />
-              <button className="cta" onClick={() => onOpen(true)}>Import</button>
+              <input
+                className="url-in" value={url} placeholder="fantasy.espn.com/football/league?leagueId=…"
+                aria-label="ESPN league URL"
+                onChange={(e) => { setUrl(e.target.value); setSaved(false); }}
+              />
+              <button className="cta" onClick={() => {
+                try { localStorage.setItem(LEAGUE_URL, url); setSaved(true); } catch { setSaved(false); }
+              }}>Save</button>
             </div>
             <span className="sub">
-              The extension reads the league from your draft room tab. Without it, the settings below are used as entered.
+              {saved
+                ? "Saved. The extension uses it to spot your draft room tab."
+                : "Settings below come from your exported projections; Refresh data at the top pulls new numbers through the extension."}
             </span>
           </div>
 

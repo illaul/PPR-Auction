@@ -11,6 +11,9 @@ import { ExtensionSync } from "./sync/extension";
 import Board from "./ui/Board";
 import Setup from "./ui/Setup";
 import PlayerDetail from "./ui/PlayerDetail";
+import RefreshData from "./ui/RefreshData";
+import { clearStored, loadStored, store, type ProjectionSet } from "./state/projections";
+import type { Player } from "./engine/valuation";
 
 type Action =
   | { kind: "event"; event: SyncEvent; teamId: (name: string) => string }
@@ -54,6 +57,8 @@ function reducer(state: DraftState, action: Action): DraftState {
   }
 }
 
+const SEASON = new Date().getUTCMonth() >= 2 ? new Date().getUTCFullYear() : new Date().getUTCFullYear() - 1;
+
 export default function App() {
   const [league, setLeague] = useState<League>(DEFAULT_LEAGUE);
   const [screen, setScreen] = useState<"setup" | "board">("setup");
@@ -61,9 +66,17 @@ export default function App() {
   const [detailId, setDetailId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const board = useMemo(() => buildBoard(league, PLAYERS), [league]);
+  // A refresh swaps the stat lines under the engine; everything downstream —
+  // baselines, VBD, tiers, dollars — is re-derived, and the draft is untouched.
+  const [projections, setProjections] = useState<ProjectionSet | null>(() => loadStored());
+  const players: Player[] = projections?.players ?? PLAYERS;
+
+  const board = useMemo(() => buildBoard(league, players), [league, players]);
   const marketScale = useMemo(() => scaleMarket(board), [board]);
-  const resolver = useMemo(() => makeResolver(PLAYERS), []);
+  const resolver = useMemo(() => makeResolver(players), [players]);
+
+  const applyProjections = (set: ProjectionSet) => { store(set); setProjections(set); };
+  const resetProjections = () => { clearStored(); setProjections(null); };
 
   const [draft, dispatch] = useReducer(reducer, null, (): DraftState => ({
     teams: DEFAULT_TEAMS,
@@ -123,36 +136,46 @@ export default function App() {
     setScreen("board");
   };
 
+  const header = (
+    <header className="head">
+      <div className="wordmark">Deflator</div>
+      <RefreshData
+        base={PLAYERS}
+        current={projections}
+        season={SEASON}
+        onApply={applyProjections}
+        onReset={resetProjections}
+      />
+      <div className="head-actions">
+        {screen === "board" && (
+          <>
+            <button className="pill" aria-pressed={sourceId === "demo"} onClick={() => setSourceId("demo")}>
+              Demo auction
+            </button>
+            <button className="pill" aria-pressed={sourceId === "extension"} onClick={() => setSourceId("extension")}>
+              ESPN extension
+            </button>
+          </>
+        )}
+        <button className="pill" onClick={() => setScreen(screen === "setup" ? "board" : "setup")}>
+          {screen === "setup" ? "Back to board" : "Settings"}
+        </button>
+      </div>
+    </header>
+  );
+
   if (screen === "setup") {
     return (
       <div className="app">
-        <Setup
-          league={league}
-          board={board}
-          onLeague={setLeague}
-          onOpen={openBoard}
-        />
+        {header}
+        <Setup league={league} board={board} onLeague={setLeague} onOpen={openBoard} />
       </div>
     );
   }
 
   return (
     <div className="app">
-      <header className="head">
-        <div className="wordmark">Deflator</div>
-        <div className="head-note">
-          {view.league.teams}-team · ${view.league.budget} · full PPR. Prices move with every dollar spent.
-        </div>
-        <div className="head-actions">
-          <button className="pill" aria-pressed={sourceId === "demo"} onClick={() => setSourceId("demo")}>
-            Demo auction
-          </button>
-          <button className="pill" aria-pressed={sourceId === "extension"} onClick={() => setSourceId("extension")}>
-            ESPN extension
-          </button>
-          <button className="pill" onClick={() => setScreen("setup")}>Settings</button>
-        </div>
-      </header>
+      {header}
 
       <Board
         view={view}
