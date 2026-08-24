@@ -62,7 +62,12 @@ async function get(url: string): Promise<unknown> {
   } catch {
     throw new Error("Couldn't reach ESPN. Is the dev server running (it carries the proxy)?");
   }
-  if (res.status === 401) throw new Error("ESPN says not authorised — a private league needs ESPN_S2 and SWID in app/.env.local.");
+  if (res.status === 401) {
+    throw new Error(
+      "ESPN rejected the request. A private league needs ESPN_S2 and SWID in app/.env.local, "
+      + "and the dev server restarted afterwards. Run `npm run espn <leagueId>` to check them.",
+    );
+  }
   if (!res.ok) throw new Error(`ESPN answered ${res.status}.`);
   const body = await res.json();
   if (typeof body !== "object" || body === null) throw new Error("ESPN sent something that isn't JSON.");

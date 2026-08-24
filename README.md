@@ -45,23 +45,43 @@ node --experimental-strip-types src/state/projections.check.ts    # refresh merg
 Paste your league URL into **ESPN league URL** and hit **Save**. Anything with
 `leagueId=…` in it works; so does the bare number.
 
-**Private league?** ESPN needs your session cookies. Create `app/.env.local`:
+### Private league? Add your two cookies
+
+ESPN only talks about a private league to a logged-in session, which means two
+cookies.
+
+1. Open **fantasy.espn.com** in a tab where you are logged in.
+2. DevTools (`F12` / `⌥⌘I`) → **Application** (Chrome) or **Storage** (Firefox)
+   → **Cookies** → `https://fantasy.espn.com`.
+3. Copy the values of **`espn_s2`** (long, full of `%` escapes) and **`SWID`**.
+4. Create **`app/.env.local`** — note the `app/`, not the repo root:
 
 ```bash
-ESPN_S2=AEB...        # the espn_s2 cookie
+ESPN_S2=AEBxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 SWID={xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}
 ```
 
-Get them from any logged-in ESPN tab: DevTools → Application → Cookies →
-`fantasy.espn.com`. Restart `npm run dev` after saving. They are read by the dev
-server and never reach the page.
+Quotes are fine, and the braces around `SWID` are added for you if you leave
+them off. Save the file and watch the `npm run dev` terminal — it restarts
+itself and prints **`ESPN cookies loaded`**. If it says *no ESPN cookies*, the
+file is in the wrong place or the names are misspelled.
 
-> **Why a dev server at all?** ESPN sends no CORS headers, so a browser can
-> never call it directly. `npm run dev` proxies `/espn/*` through to ESPN
-> server-side. That is the whole trick — no extension, no separate service.
+### Check it before draft day
+
+```bash
+npm run espn 1184402        # your league id
+```
+
+It reads `app/.env.local` itself and tells you exactly where you stand — cookies
+found or not, whether ESPN accepted them, how many teams and picks it can see.
 
 Then pick **Your team** from the dropdown. Budget, max bid and roster slots are
 all read off that one.
+
+> **Why a dev server at all?** ESPN sends no CORS headers, so a browser can
+> never call it directly. `npm run dev` proxies `/espn/*` through to ESPN
+> server-side, attaching those cookies there. They are never exposed to the
+> page, and `.env.local` is gitignored.
 
 ## 4. Before the draft
 
@@ -145,7 +165,9 @@ Save league id `123`, hit **ESPN live**, and watch the board fill up.
 | symptom | what to do |
 | --- | --- |
 | *Couldn't reach ESPN* | The proxy lives in the dev server — make sure `npm run dev` is still running. |
-| *Not authorised* | Private league. Add `ESPN_S2` and `SWID` to `app/.env.local` and restart. |
+| *ESPN rejected the request* | Run `npm run espn <leagueId>`. It says whether the cookies are being read, and whether ESPN accepted them. |
+| Terminal says *no ESPN cookies* | `.env.local` must sit in `app/`, not the repo root, and the keys are `ESPN_S2` and `SWID`. |
+| Cookies worked yesterday, not today | `espn_s2` rotates. Copy both values again from a logged-in tab. |
 | *That league has no draft on it* | Wrong league id, or the draft has not been created yet. |
 | ESPN live button is disabled | No league id saved. Settings → paste the URL → Save. |
 | Sales stop arriving | Three failed polls in a row raise a banner with the reason. Keep going by recording sales in the drawer. |

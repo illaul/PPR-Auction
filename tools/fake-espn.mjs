@@ -6,6 +6,9 @@
  *
  * It answers the two views the app asks for, and drips auction picks out one
  * every few seconds so the board can be watched filling up.
+ *
+ * REQUIRE_AUTH=1 makes it behave like a private league: 401 unless the request
+ * carries espn_s2 and SWID cookies. That is how the cookie path gets tested.
  */
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
@@ -55,12 +58,21 @@ function picks() {
   }));
 }
 
+const REQUIRE_AUTH = process.env.REQUIRE_AUTH === "1";
+
 createServer((req, res) => {
   const url = new URL(req.url, "http://localhost");
   const json = (body) => {
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify(body));
   };
+  if (REQUIRE_AUTH) {
+    const cookie = req.headers.cookie ?? "";
+    if (!/espn_s2=\S+/.test(cookie) || !/SWID=\{.+\}/.test(cookie)) {
+      res.writeHead(401, { "content-type": "application/json" });
+      return res.end('{"messages":["not authorized"]}');
+    }
+  }
   if (url.searchParams.getAll("view").includes("kona_player_info")) return json({ players: universe });
   if (url.searchParams.getAll("view").includes("mDraftDetail")) {
     return json({ draftDetail: { drafted: false, inProgress: true, picks: picks() }, teams });
