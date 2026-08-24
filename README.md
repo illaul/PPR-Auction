@@ -17,6 +17,7 @@ Two things live here:
 | | |
 | --- | --- |
 | Node | **22.12 or newer** (`node -v`). |
+| Terminal | PowerShell, Terminal.app, anything — the commands below are identical on Windows and macOS. |
 | A browser | any. No extension required. |
 | Time | about five minutes, once. |
 
@@ -24,21 +25,27 @@ Two things live here:
 
 ```bash
 git clone -b claude/file-algo-analysis-tfvrpf https://github.com/illaul/PPR-Auction
-cd PPR-Auction/app
+cd PPR-Auction
 npm install
 npm run dev
 ```
 
-Open **http://localhost:5173**. You land on the settings screen with your league
+Run those from the **repo root** — `npm install` there installs the app's
+dependencies for you. (Everything also works from inside `app/` if you prefer;
+that is where the app's own `package.json` lives.)
+
+Open **http://localhost:5173** — or whatever address the terminal prints, if
+that port is busy. You land on the settings screen with your league
 already filled in — 12 teams, $200, full PPR, 16 slots.
 
 Sanity-check the maths if you like — all three pass in a few seconds:
 
 ```bash
-node --experimental-strip-types src/engine/valuation.check.ts     # prices vs the workbook
-node --experimental-strip-types src/state/names.check.ts          # ESPN name matching
-node --experimental-strip-types src/state/projections.check.ts    # refresh merge + safety gate
+npm run check
 ```
+
+That runs three suites: prices against the workbook, ESPN name matching, and
+the refresh merge with its safety gate.
 
 ## 3. Point it at your league
 
