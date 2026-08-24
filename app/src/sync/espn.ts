@@ -133,12 +133,36 @@ export async function fetchDraft(season: number, leagueId: string): Promise<Espn
   };
 }
 
+export interface LeagueRef {
+  leagueId: string;
+  /** From seasonId= in the URL, when it is there. */
+  season: number | null;
+  /** From teamId= — which of the league's teams is yours. */
+  teamId: string | null;
+  /** ESPN puts memberId= in draft-room URLs, and that value *is* your SWID. */
+  swid: string | null;
+}
+
+/**
+ * Pulls everything useful out of whatever the user pastes: a draft-room URL, a
+ * league URL, or a bare league id.
+ */
+export function parseLeagueUrl(input: string): LeagueRef | null {
+  const leagueId = input.match(/leagueId=(\d+)/i)?.[1] ?? input.trim().match(/^(\d{3,})$/)?.[1];
+  if (!leagueId) return null;
+  const season = Number(input.match(/seasonId=(\d{4})/i)?.[1]);
+  const swid = input.match(/memberId=(\{[0-9A-F-]{36}\})/i)?.[1];
+  return {
+    leagueId,
+    season: Number.isFinite(season) ? season : null,
+    teamId: input.match(/teamId=(\d+)/i)?.[1] ?? null,
+    swid: swid ? swid.toUpperCase() : null,
+  };
+}
+
 /** A league URL, a bare id, or nothing. */
 export function parseLeagueId(input: string): string | null {
-  const byParam = input.match(/leagueId=(\d+)/i);
-  if (byParam) return byParam[1];
-  const bare = input.trim().match(/^(\d{3,})$/);
-  return bare ? bare[1] : null;
+  return parseLeagueUrl(input)?.leagueId ?? null;
 }
 
 interface EspnRawPlayer {

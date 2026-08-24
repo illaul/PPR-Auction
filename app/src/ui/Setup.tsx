@@ -1,20 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Board, League, SkillPos } from "../engine/valuation";
-import { parseLeagueId } from "../sync/espn";
+import { parseLeagueUrl, type LeagueRef } from "../sync/espn";
 import { money } from "./bits";
 
 const LEAGUE_URL = "deflator.leagueUrl";
 
 export default function Setup({
-  league, board, onLeague, onOpen, leagueId, onLeagueId, teams, onPickMe,
+  league, board, onLeague, onOpen, leagueRef, onLeagueRef, teams, onPickMe,
 }: {
   league: League;
   board: Board;
   onLeague: (l: League) => void;
   onOpen: (withDemoData: boolean) => void;
   /** Parsed out of the league URL; without it there is nothing to poll. */
-  leagueId: string | null;
-  onLeagueId: (id: string | null) => void;
+  leagueRef: LeagueRef | null;
+  onLeagueRef: (ref: LeagueRef | null) => void;
   teams: { id: string; name: string; isMe: boolean }[];
   onPickMe: (teamId: string) => void;
 }) {
@@ -60,19 +60,30 @@ export default function Setup({
                 onChange={(e) => { setUrl(e.target.value); setSaved(false); }}
               />
               <button className="cta" onClick={() => {
-                const id = parseLeagueId(url);
                 try { localStorage.setItem(LEAGUE_URL, url); } catch { /* private window */ }
-                onLeagueId(id);
+                onLeagueRef(parseLeagueUrl(url));
                 setSaved(true);
               }}>Save</button>
             </div>
             <span className="sub">
               {!saved
-                ? "Paste the URL of your league. The app polls it every 3 seconds for completed picks."
-                : leagueId
-                  ? `Saved — league ${leagueId}. Pick ESPN live on the board to start polling.`
-                  : "Saved, but no league id in that URL. It should contain leagueId=…"}
+                ? "Paste your league or draft-room URL. The app polls it every 3 seconds for completed picks."
+                : leagueRef
+                  ? `Saved — league ${leagueRef.leagueId}${leagueRef.season ? `, ${leagueRef.season}` : ""}. Pick ESPN live on the board to start polling.`
+                  : "Saved, but there is no league id in that URL. It should contain leagueId=…"}
             </span>
+            {leagueRef?.swid && (
+              <div className="side-card good" style={{ marginTop: 4 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--olive-deep)" }}>
+                  Your SWID is in that URL
+                </span>
+                <span style={{ fontSize: 12.5, color: "rgba(32,30,29,0.72)" }}>
+                  A draft-room link carries <code>memberId</code>, and that value is the SWID cookie. Put this line in
+                  {" "}<strong>app/.env.local</strong> — you still need <code>espn_s2</code> from your browser cookies.
+                </span>
+                <code style={{ fontSize: 12, wordBreak: "break-all" }}>SWID={leagueRef.swid}</code>
+              </div>
+            )}
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>

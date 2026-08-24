@@ -50,7 +50,16 @@ the refresh merge with its safety gate.
 ## 3. Point it at your league
 
 Paste your league URL into **ESPN league URL** and hit **Save**. Anything with
-`leagueId=…` in it works; so does the bare number.
+`leagueId=…` works, and so does the bare number — but the **draft-room URL** is
+worth more, because it carries three things at once:
+
+```
+fantasy.espn.com/football/draft?leagueId=1208270173&seasonId=2026&teamId=8&memberId={...}
+                                         └ league      └ season   └ your team  └ your SWID
+```
+
+Paste that and the app picks up the season, marks which team is yours, and shows
+you the `SWID` line to copy — one fewer trip into DevTools.
 
 ### Private league? Add your two cookies
 
@@ -60,7 +69,9 @@ cookies.
 1. Open **fantasy.espn.com** in a tab where you are logged in.
 2. DevTools (`F12` / `⌥⌘I`) → **Application** (Chrome) or **Storage** (Firefox)
    → **Cookies** → `https://fantasy.espn.com`.
-3. Copy the values of **`espn_s2`** (long, full of `%` escapes) and **`SWID`**.
+3. Copy the value of **`espn_s2`** (long, full of `%` escapes). You need `SWID`
+   too, but if you pasted a draft-room URL above, the app already showed it to
+   you — it is the `memberId` from that link.
 4. Create **`app/.env.local`** — note the `app/`, not the repo root:
 
 ```bash

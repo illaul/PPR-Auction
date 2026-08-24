@@ -9,7 +9,7 @@ import type { SyncEvent, SyncSource } from "./sync/types";
 import { DemoSync } from "./sync/demo";
 import { ExtensionSync } from "./sync/extension";
 import { PollSync } from "./sync/poll";
-import { parseLeagueId } from "./sync/espn";
+import { parseLeagueUrl, type LeagueRef } from "./sync/espn";
 import Board from "./ui/Board";
 import Setup from "./ui/Setup";
 import PlayerDetail from "./ui/PlayerDetail";
@@ -18,7 +18,7 @@ import { clearStored, loadStored, store, type ProjectionSet } from "./state/proj
 import type { Player } from "./engine/valuation";
 
 type Action =
-  | { kind: "event"; event: SyncEvent; teamId: (name: string) => string }
+  | { kind: "event"; event: SyncEvent; teamId: (name: string) => string; myTeamId?: string | null }
   | { kind: "pickMe"; teamId: string }
   | { kind: "reset"; state: DraftState }
   | { kind: "manualSale"; playerId: string; price: number; teamId: string }
@@ -64,7 +64,7 @@ function reducer(state: DraftState, action: Action): DraftState {
           const mine = state.teams.find((t) => t.isMe)?.name;
           const teams = e.teams.map((t, i) => ({
             id: t.id, name: t.name,
-            isMe: mine ? t.name === mine : i === 0,
+            isMe: action.myTeamId ? t.id === action.myTeamId : mine ? t.name === mine : i === 0,
           }));
           return { ...state, teams: teams.some((t) => t.isMe) ? teams : teams.map((t, i) => ({ ...t, isMe: i === 0 })) };
         }
@@ -92,9 +92,11 @@ export default function App() {
   const [league, setLeague] = useState<League>(DEFAULT_LEAGUE);
   const [screen, setScreen] = useState<"setup" | "board">("setup");
   const [sourceId, setSourceId] = useState<"demo" | "poll" | "extension">("demo");
-  const [leagueId, setLeagueId] = useState<string | null>(() => {
-    try { return parseLeagueId(localStorage.getItem("deflator.leagueUrl") ?? ""); } catch { return null; }
+  const [ref, setRef] = useState<LeagueRef | null>(() => {
+    try { return parseLeagueUrl(localStorage.getItem("deflator.leagueUrl") ?? ""); } catch { return null; }
   });
+  const leagueId = ref?.leagueId ?? null;
+  const season = ref?.season ?? SEASON;
   const [detailId, setDetailId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -129,13 +131,14 @@ export default function App() {
   const sourceRef = useRef<SyncSource | null>(null);
   useEffect(() => {
     if (screen !== "board") return;
-    const emit = (event: SyncEvent) => dispatch({ kind: "event", event, teamId: teamIdByName });
+    const emit = (event: SyncEvent) =>
+      dispatch({ kind: "event", event, teamId: teamIdByName, myTeamId: ref?.teamId ?? null });
     const source: SyncSource =
       sourceId === "demo"
         ? new DemoSync(board, draft.teams.filter((t) => !t.isMe).map((t) => t.name), marketScale,
             new Set(draft.sales.map((s) => s.playerId)))
         : sourceId === "poll" && leagueId
-          ? new PollSync(SEASON, leagueId, resolver)
+          ? new PollSync(season, leagueId, resolver)
           : new ExtensionSync(resolver);
     sourceRef.current = source;
     source.start(emit);
@@ -143,7 +146,7 @@ export default function App() {
     // Restarting on every sale would reset the demo queue, so the deps stay narrow
     // on purpose: the source pushes, it never reads back.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [screen, sourceId, board, leagueId]);
+  }, [screen, sourceId, board, leagueId, season]);
 
   const view = useMemo(() => buildView(league, board, draft), [league, board, draft]);
 
@@ -179,7 +182,7 @@ export default function App() {
       <RefreshData
         base={PLAYERS}
         current={projections}
-        season={SEASON}
+        season={season}
         onApply={applyProjections}
         onReset={resetProjections}
       />
@@ -214,7 +217,7 @@ export default function App() {
         {header}
         <Setup
           league={league} board={board} onLeague={setLeague} onOpen={openBoard}
-          leagueId={leagueId} onLeagueId={setLeagueId}
+          leagueRef={ref} onLeagueRef={setRef}
           teams={draft.teams} onPickMe={(teamId) => dispatch({ kind: "pickMe", teamId })}
         />
       </div>
