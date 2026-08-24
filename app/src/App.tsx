@@ -8,6 +8,8 @@ import type { League } from "./engine/valuation";
 import type { SyncEvent, SyncSource } from "./sync/types";
 import { DemoSync } from "./sync/demo";
 import { ExtensionSync } from "./sync/extension";
+import { PollSync } from "./sync/poll";
+import { parseLeagueId } from "./sync/espn";
 import Board from "./ui/Board";
 import Setup from "./ui/Setup";
 import PlayerDetail from "./ui/PlayerDetail";
@@ -17,16 +19,22 @@ import type { Player } from "./engine/valuation";
 
 type Action =
   | { kind: "event"; event: SyncEvent; teamId: (name: string) => string }
+  | { kind: "pickMe"; teamId: string }
   | { kind: "reset"; state: DraftState }
   | { kind: "manualSale"; playerId: string; price: number; teamId: string }
-  | { kind: "nominate"; playerId: string; bid: number };
+  | { kind: "nominate"; playerId: string; bid: number }
+  | { kind: "setBid"; bid: number };
 
 function reducer(state: DraftState, action: Action): DraftState {
   switch (action.kind) {
     case "reset":
       return action.state;
+    case "pickMe":
+      return { ...state, teams: state.teams.map((t) => ({ ...t, isMe: t.id === action.teamId })) };
     case "nominate":
-      return { ...state, block: { playerId: action.playerId, bid: action.bid, bidder: null, clock: 20 } };
+      return { ...state, block: { playerId: action.playerId, bid: action.bid, bidder: null, clock: 0 } };
+    case "setBid":
+      return state.block ? { ...state, block: { ...state.block, bid: Math.max(0, action.bid) } } : state;
     case "manualSale":
       return {
         ...state,
@@ -36,10 +44,30 @@ function reducer(state: DraftState, action: Action): DraftState {
     case "event": {
       const e = action.event;
       switch (e.type) {
-        case "status":
-          return { ...state, connection: e.connection, latencyMs: e.latencyMs ?? state.latencyMs };
+        case "status": {
+          const latency = e.latencyMs ?? state.latencyMs;
+          const settled = state.connection === e.connection
+            && Math.abs((latency ?? 0) - (state.latencyMs ?? 0)) < 250;
+          // Identical status every poll would re-render the board out from under a click.
+          if (settled && state.error === null) return state;
+          return { ...state, connection: e.connection, latencyMs: latency, error: null };
+        }
         case "turn":
           return { ...state, myTurn: e.yours };
+        case "error":
+          return { ...state, error: e.message };
+        case "teams": {
+          const same = state.teams.length === e.teams.length
+            && state.teams.every((t, i) => t.id === e.teams[i].id && t.name === e.teams[i].name);
+          if (same) return state;
+          // ESPN owns the team list once it is polling; keep whichever one is ours.
+          const mine = state.teams.find((t) => t.isMe)?.name;
+          const teams = e.teams.map((t, i) => ({
+            id: t.id, name: t.name,
+            isMe: mine ? t.name === mine : i === 0,
+          }));
+          return { ...state, teams: teams.some((t) => t.isMe) ? teams : teams.map((t, i) => ({ ...t, isMe: i === 0 })) };
+        }
         case "nomination":
           return { ...state, block: { playerId: e.playerId, bid: e.bid, bidder: e.bidder, clock: 20 } };
         case "bid":
@@ -47,6 +75,7 @@ function reducer(state: DraftState, action: Action): DraftState {
         case "clock":
           return state.block ? { ...state, block: { ...state.block, clock: e.seconds } } : state;
         case "sold":
+          if (state.sales.some((x) => x.playerId === e.playerId)) return state;
           return {
             ...state,
             sales: [...state.sales, { playerId: e.playerId, price: e.price, teamId: action.teamId(e.teamName) }],
@@ -62,7 +91,10 @@ const SEASON = new Date().getUTCMonth() >= 2 ? new Date().getUTCFullYear() : new
 export default function App() {
   const [league, setLeague] = useState<League>(DEFAULT_LEAGUE);
   const [screen, setScreen] = useState<"setup" | "board">("setup");
-  const [sourceId, setSourceId] = useState<"demo" | "extension">("demo");
+  const [sourceId, setSourceId] = useState<"demo" | "poll" | "extension">("demo");
+  const [leagueId, setLeagueId] = useState<string | null>(() => {
+    try { return parseLeagueId(localStorage.getItem("deflator.leagueUrl") ?? ""); } catch { return null; }
+  });
   const [detailId, setDetailId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -85,6 +117,7 @@ export default function App() {
     connection: "disconnected",
     latencyMs: null,
     myTurn: false,
+    error: null,
   }));
 
   const teamIdByName = useCallback((name: string) => {
@@ -97,17 +130,20 @@ export default function App() {
   useEffect(() => {
     if (screen !== "board") return;
     const emit = (event: SyncEvent) => dispatch({ kind: "event", event, teamId: teamIdByName });
-    const source: SyncSource = sourceId === "demo"
-      ? new DemoSync(board, draft.teams.filter((t) => !t.isMe).map((t) => t.name), marketScale,
-          new Set(draft.sales.map((s) => s.playerId)))
-      : new ExtensionSync(resolver);
+    const source: SyncSource =
+      sourceId === "demo"
+        ? new DemoSync(board, draft.teams.filter((t) => !t.isMe).map((t) => t.name), marketScale,
+            new Set(draft.sales.map((s) => s.playerId)))
+        : sourceId === "poll" && leagueId
+          ? new PollSync(SEASON, leagueId, resolver)
+          : new ExtensionSync(resolver);
     sourceRef.current = source;
     source.start(emit);
     return () => { source.stop(); sourceRef.current = null; };
     // Restarting on every sale would reset the demo queue, so the deps stay narrow
     // on purpose: the source pushes, it never reads back.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [screen, sourceId, board]);
+  }, [screen, sourceId, board, leagueId]);
 
   const view = useMemo(() => buildView(league, board, draft), [league, board, draft]);
 
@@ -130,6 +166,7 @@ export default function App() {
         connection: demoData ? "live" : "disconnected",
         latencyMs: demoData ? 400 : null,
         myTurn: false,
+        error: null,
       },
     });
     setSourceId(demoData ? "demo" : "extension");
@@ -152,8 +189,15 @@ export default function App() {
             <button className="pill" aria-pressed={sourceId === "demo"} onClick={() => setSourceId("demo")}>
               Demo auction
             </button>
+            <button
+              className="pill" aria-pressed={sourceId === "poll"} disabled={!leagueId}
+              title={leagueId ? `Polling league ${leagueId} every 3s` : "Add your league id in Settings first"}
+              onClick={() => setSourceId("poll")}
+            >
+              ESPN live{leagueId ? "" : " (needs league id)"}
+            </button>
             <button className="pill" aria-pressed={sourceId === "extension"} onClick={() => setSourceId("extension")}>
-              ESPN extension
+              Extension
             </button>
           </>
         )}
@@ -168,7 +212,11 @@ export default function App() {
     return (
       <div className="app">
         {header}
-        <Setup league={league} board={board} onLeague={setLeague} onOpen={openBoard} />
+        <Setup
+          league={league} board={board} onLeague={setLeague} onOpen={openBoard}
+          leagueId={leagueId} onLeagueId={setLeagueId}
+          teams={draft.teams} onPickMe={(teamId) => dispatch({ kind: "pickMe", teamId })}
+        />
       </div>
     );
   }
@@ -177,6 +225,13 @@ export default function App() {
     <div className="app">
       {header}
 
+      {draft.error && (
+        <div className="banner">
+          <strong>ESPN sync</strong> {draft.error}
+          <button className="linky" onClick={() => setSourceId("demo")}>switch to demo</button>
+        </div>
+      )}
+
       <Board
         view={view}
         drawerOpen={drawerOpen}
@@ -184,6 +239,7 @@ export default function App() {
         onPlayer={setDetailId}
         onSale={(playerId, price, teamId) => dispatch({ kind: "manualSale", playerId, price, teamId })}
         onNominate={(playerId, bid) => dispatch({ kind: "nominate", playerId, bid })}
+        onBid={(bid) => dispatch({ kind: "setBid", bid })}
       />
 
       {detailId && (

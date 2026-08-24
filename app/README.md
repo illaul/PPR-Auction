@@ -46,9 +46,9 @@ too; they are not part of a projection pull.
 
 Two sources:
 
-- **ESPN, through the extension.** The app asks, the extension fetches ESPN's
-  public PPR default projections and hands back stat lines. Scoring is applied
-  here, against your league's settings — never ESPN's.
+- **ESPN, through the dev server's proxy.** No extension: `/espn/*` is proxied
+  server-side, which is also the only way past CORS. Scoring is applied here,
+  against your league's settings — never ESPN's.
 - **A file.** `load a file` takes the JSON this repo exports
   (`tools/export_players.py`) or a FantasyPros-style CSV with a header row.
   This path works with no extension at all.
@@ -71,10 +71,12 @@ data/league.json ──┼─► engine/valuation.ts ──► state/model.ts �
                    │        prices, baselines,     view: teams, slots,
                    │        inflation, max bid     verdict, dropoffs
 sync/* ────────────┘
-  extension.ts  ESPN draft room, relayed by the Chrome extension (<1s)
+  poll.ts       ESPN league polled every 3s through the proxy — completed sales
+  espn.ts       the two ESPN views, and the shapes they come back in
+  extension.ts  optional: the draft room relayed live, including the bid
   demo.ts       a scripted auction off the real pool, for practice
-  manual        type the price in the drawer when nothing is relaying
-  refresh.ts    fresh projections, from the extension or a file
+  manual        put a player on the block and track the bid with -/+
+  refresh.ts    fresh projections, from a file
 ```
 
 Every price on screen is `model price × inflation`, and inflation is
@@ -91,8 +93,9 @@ board needs on top of those tokens.
 
 ## Known gaps
 
-- The extension's ESPN draft-room selectors and the projection stat-id map are
-  both unverified against live ESPN — see `extension/README.md`. The file
-  refresh path needs neither.
-- The league URL on the setup screen is stored for the extension to use; league
-  settings themselves still come from the exported workbook.
+- ESPN's request shapes are exercised against `tools/fake-espn.mjs`, not against
+  live ESPN. Verify on a mock draft; `sampleStats()` in `sync/espn.ts` returns
+  the raw stat object from the last pull if the ids need re-reading.
+- Polling sees completed sales only. The live bid needs the optional extension,
+  or the − / + tracker on the block.
+- League settings still come from the exported workbook, not from ESPN.

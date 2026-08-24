@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { refreshFromExtension, refreshFromFile } from "../sync/refresh";
+import { fetchPlayers } from "../sync/espn";
 import { freshness, mergeProjections, validate, type ProjectionSet, type RawProjection } from "../state/projections";
 import type { Player } from "../engine/valuation";
 
@@ -32,9 +33,16 @@ export default function RefreshData({ base, current, season, onApply, onReset }:
   const fromEspn = async () => {
     setState({ kind: "pulling", from: "espn" });
     try {
-      apply(await refreshFromExtension(season), "espn");
-    } catch (e) {
-      setState({ kind: "error", message: (e as Error).message });
+      // The dev server's proxy is the normal route; the extension is a fallback
+      // for anyone running the app somewhere without it.
+      const { projections } = await fetchPlayers(season);
+      apply(projections, "espn");
+    } catch (proxyErr) {
+      try {
+        apply(await refreshFromExtension(season, 8000), "espn");
+      } catch {
+        setState({ kind: "error", message: (proxyErr as Error).message });
+      }
     }
   };
 

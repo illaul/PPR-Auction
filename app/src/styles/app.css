@@ -276,3 +276,36 @@ body {
 .linky { background: none; border: 0; padding: 0; cursor: pointer; font: inherit; font-size: 11.5px;
          color: var(--rust-deep); text-decoration: underline; text-underline-offset: 2px; }
 .linky:hover { color: var(--rust); }
+
+/* ── sync error banner ─────────────────────────────────────────────────── */
+.banner {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  padding: 11px 18px; border-radius: 16px; font-size: 14px;
+  background: var(--alarm-soft); border: 1px solid var(--alarm-line); color: var(--ink);
+}
+.banner strong { color: var(--alarm-deep); }
+
+/* ── manual bid tracking ───────────────────────────────────────────────── */
+.bid-step { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.bid-step button {
+  width: 26px; height: 26px; border-radius: 999px; cursor: pointer; font: inherit; font-size: 15px;
+  line-height: 1; border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+}
+.bid-step button:hover { background: var(--raised); border-color: var(--rust); color: var(--rust-deep); }
+
+.picker { margin-top: 18px; max-width: 380px; position: relative; }
+.picker-hits {
+  position: absolute; z-index: 5; left: 0; right: 0; margin-top: 6px;
+  display: flex; flex-direction: column; gap: 2px; padding: 5px;
+  background: var(--raised); border: 1px solid var(--line); border-radius: 16px;
+  box-shadow: 0 12px 32px rgba(46, 43, 37, 0.18);
+}
+.picker-hits button {
+  display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: baseline;
+  padding: 8px 11px; border: 0; border-radius: 11px; background: transparent; cursor: pointer;
+  font: inherit; text-align: left;
+}
+.picker-hits button:hover { background: var(--panel); }
+.picker-hits .nm { font-size: 13.5px; font-weight: 600; }
+.picker-hits .pos { font-size: 11.5px; color: var(--ink-50); }
+.picker-hits .amt { font-size: 13px; font-weight: 700; color: var(--rust-deep); }

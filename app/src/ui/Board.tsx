@@ -10,9 +10,10 @@ interface Props {
   onPlayer: (id: string) => void;
   onSale: (playerId: string, price: number, teamId: string) => void;
   onNominate: (playerId: string, bid: number) => void;
+  onBid: (bid: number) => void;
 }
 
-export default function Board({ view, drawerOpen, onDrawer, onPlayer, onSale, onNominate }: Props) {
+export default function Board({ view, drawerOpen, onDrawer, onPlayer, onSale, onNominate, onBid }: Props) {
   const { block } = view;
   const won = useRecentWin(view);
   return (
@@ -20,10 +21,10 @@ export default function Board({ view, drawerOpen, onDrawer, onPlayer, onSale, on
       <TopStrip view={view} />
       {won && <WonBand view={view} sale={won} />}
       {block
-        ? <BlockBand view={view} onPlayer={onPlayer} />
+        ? <BlockBand view={view} onPlayer={onPlayer} onBid={onBid} />
         : view.myTurn
           ? <NominationBand view={view} onNominate={onNominate} onPlayer={onPlayer} />
-          : <IdleBand view={view} onPlayer={onPlayer} />}
+          : <IdleBand view={view} onPlayer={onPlayer} onNominate={onNominate} />}
       <div className="panels">
         <RosterPanel view={view} />
         <RemainingPanel view={view} onPlayer={onPlayer} />
@@ -98,7 +99,7 @@ function TopStrip({ view }: { view: View }) {
 
 /* ── the block ─────────────────────────────────────────────────────────── */
 
-function BlockBand({ view, onPlayer }: { view: View; onPlayer: (id: string) => void }) {
+function BlockBand({ view, onPlayer, onBid }: { view: View; onPlayer: (id: string) => void; onBid: (bid: number) => void }) {
   const b = view.block!;
   const p = b.player;
   const pctOf = (n: number) => `${Math.min(100, Math.max(0, (n / b.scaleMax) * 100)).toFixed(2)}%`;
@@ -150,7 +151,11 @@ function BlockBand({ view, onPlayer }: { view: View; onPlayer: (id: string) => v
             <div className="readout">
               <Cap>Current bid</Cap>
               <div className="n">{money(b.bid)}</div>
-              <div className="sub">{b.bidder ?? "no bid yet"}</div>
+              <div className="bid-step">
+                <button onClick={() => onBid(b.bid - 1)} aria-label="Lower the bid by a dollar">−</button>
+                <button onClick={() => onBid(b.bid + 1)} aria-label="Raise the bid by a dollar">+</button>
+                <span className="sub">{b.bidder ?? "track it here"}</span>
+              </div>
             </div>
             <div className="readout">
               <Cap>Walk away at</Cap>
@@ -208,6 +213,37 @@ function BlockBand({ view, onPlayer }: { view: View; onPlayer: (id: string) => v
               : "Nothing left at this position justifies the price."}
           </span>
           <span className="tail">walk away · {money(b.walkAway)}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Type a name, put them on the block. The fastest path when nothing relays bids. */
+function BlockPicker({ view, onNominate }: { view: View; onNominate: (id: string, bid: number) => void }) {
+  const [q, setQ] = useState("");
+  const hits = useMemo(() => {
+    if (q.trim().length < 2) return [];
+    const needle = q.toLowerCase();
+    return view.board.players
+      .filter((p) => !view.sold.has(p.id) && p.name.toLowerCase().includes(needle))
+      .slice(0, 5);
+  }, [q, view]);
+  return (
+    <div className="picker">
+      <input
+        className="url-in" placeholder="Type the player on the block…" value={q}
+        aria-label="Put a player on the block" onChange={(e) => setQ(e.target.value)}
+      />
+      {hits.length > 0 && (
+        <div className="picker-hits">
+          {hits.map((p) => (
+            <button key={p.id} onClick={() => { onNominate(p.id, 1); setQ(""); }}>
+              <span className="nm">{p.name}</span>
+              <span className="pos">{p.pos} · {p.team}</span>
+              <span className="amt">{money(view.price(p), 0)}</span>
+            </button>
+          ))}
         </div>
       )}
     </div>
@@ -297,15 +333,17 @@ function alternative(view: View, p: PricedPlayer): PricedPlayer | null {
   ) ?? null;
 }
 
-function IdleBand({ view, onPlayer }: { view: View; onPlayer: (id: string) => void }) {
-  const connected = view.gone > 0;
+function IdleBand({ view, onPlayer, onNominate }: {
+  view: View; onPlayer: (id: string) => void; onNominate: (id: string, bid: number) => void;
+}) {
+  const connected = view.connection === "live";
   const watch = view.board.players.filter((p) => !view.sold.has(p.id) && p.price > 0).slice(0, 3);
   return (
     <div className="block">
       <div className="block-head">
         <div className="block-eyebrow">{connected ? "Between nominations" : "Not connected"}</div>
         <div className="block-name" style={{ color: "rgba(32,30,29,0.75)" }}>
-          {connected ? "Waiting for nomination" : "The extension isn't relaying picks"}
+          {connected ? "Who's up?" : "Not syncing with ESPN"}
         </div>
       </div>
       <div className="block-grid">
@@ -315,8 +353,13 @@ function IdleBand({ view, onPlayer }: { view: View; onPlayer: (id: string) => vo
             <span className="amt">—</span>
           </div>
           <div className="maxbid-note">
-            <span>{connected ? "nobody on the block" : "no live bid to price against"}</span>
+            <span>
+              {connected
+                ? "sales arrive on their own — name whoever is up to price them"
+                : "no sync, so prices are frozen at the last inflation"}
+            </span>
           </div>
+          <BlockPicker view={view} onNominate={onNominate} />
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <Cap>Watchlist, priced at {view.inflation.toFixed(2)}</Cap>

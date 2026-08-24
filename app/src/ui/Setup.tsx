@@ -1,14 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Board, League, SkillPos } from "../engine/valuation";
+import { parseLeagueId } from "../sync/espn";
 import { money } from "./bits";
 
 const LEAGUE_URL = "deflator.leagueUrl";
 
-export default function Setup({ league, board, onLeague, onOpen }: {
+export default function Setup({
+  league, board, onLeague, onOpen, leagueId, onLeagueId, teams, onPickMe,
+}: {
   league: League;
   board: Board;
   onLeague: (l: League) => void;
   onOpen: (withDemoData: boolean) => void;
+  /** Parsed out of the league URL; without it there is nothing to poll. */
+  leagueId: string | null;
+  onLeagueId: (id: string | null) => void;
+  teams: { id: string; name: string; isMe: boolean }[];
+  onPickMe: (teamId: string) => void;
 }) {
   const [url, setUrl] = useState(() => {
     try { return localStorage.getItem(LEAGUE_URL) ?? ""; } catch { return ""; }
@@ -52,13 +60,18 @@ export default function Setup({ league, board, onLeague, onOpen }: {
                 onChange={(e) => { setUrl(e.target.value); setSaved(false); }}
               />
               <button className="cta" onClick={() => {
-                try { localStorage.setItem(LEAGUE_URL, url); setSaved(true); } catch { setSaved(false); }
+                const id = parseLeagueId(url);
+                try { localStorage.setItem(LEAGUE_URL, url); } catch { /* private window */ }
+                onLeagueId(id);
+                setSaved(true);
               }}>Save</button>
             </div>
             <span className="sub">
-              {saved
-                ? "Saved. The extension uses it to spot your draft room tab."
-                : "Settings below come from your exported projections; Refresh data at the top pulls new numbers through the extension."}
+              {!saved
+                ? "Paste the URL of your league. The app polls it every 3 seconds for completed picks."
+                : leagueId
+                  ? `Saved — league ${leagueId}. Pick ESPN live on the board to start polling.`
+                  : "Saved, but no league id in that URL. It should contain leagueId=…"}
             </span>
           </div>
 
@@ -94,6 +107,20 @@ export default function Setup({ league, board, onLeague, onOpen }: {
               Sets the kink: starter-grade points price at {money(board.factors.starterPF, 3)}, bench-grade at{" "}
               {money(board.factors.benchPF, 3)}.
             </div>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <span className="field-lab">Your team</span>
+            <select
+              className="url-in" style={{ maxWidth: 320 }} aria-label="Which team is yours"
+              value={teams.find((t) => t.isMe)?.id ?? teams[0]?.id}
+              onChange={(e) => onPickMe(e.target.value)}
+            >
+              {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+            <span className="sub">
+              Budget, max bid and roster slots are all read off this one. ESPN's real team names replace these once polling starts.
+            </span>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

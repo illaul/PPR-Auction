@@ -5,11 +5,13 @@ export type SyncEvent =
   | { type: "clock"; seconds: number }
   | { type: "sold"; playerId: string; price: number; teamName: string }
   | { type: "turn"; yours: boolean }
+  | { type: "teams"; teams: { id: string; name: string }[] }
+  | { type: "error"; message: string }
   | { type: "status"; connection: "live" | "manual" | "disconnected"; latencyMs?: number };
 
 export interface SyncSource {
-  readonly id: "extension" | "demo" | "manual";
+  readonly id: "extension" | "demo" | "manual" | "poll";
   readonly label: string;
-  start(emit: (e: SyncEvent) => void): void;
+  start(emit: (e: SyncEvent) => void): void | Promise<void>;
   stop(): void;
 }

@@ -32,6 +32,8 @@ export interface DraftState {
   latencyMs: number | null;
   /** ESPN says it is our turn to put a player up. */
   myTurn: boolean;
+  /** Last sync failure, shown until the next good poll. */
+  error: string | null;
 }
 
 export const DEFAULT_TEAMS: Team[] = [

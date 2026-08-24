@@ -4,8 +4,9 @@ Two things live here:
 
 - **`ANALYSIS.md`** — a teardown of the Deflators League workbook and the
   valuation algorithm inside it.
-- **`app/` + `extension/`** — **Deflator**, that algorithm rebuilt as a live
-  auction assistant that syncs with your ESPN draft.
+- **`app/`** — **Deflator**, that algorithm rebuilt as a live auction assistant
+  that syncs with your ESPN draft. (`extension/` is an optional add-on; you do
+  not need it.)
 
 ---
 
@@ -15,9 +16,9 @@ Two things live here:
 
 | | |
 | --- | --- |
-| Node | **22.12 or newer** (`node -v`). The test scripts want 22.6+ for TypeScript stripping. |
-| Chrome | only for the live ESPN relay. The app itself runs in any browser. |
-| Time | about ten minutes, once. |
+| Node | **22.12 or newer** (`node -v`). |
+| A browser | any. No extension required. |
+| Time | about five minutes, once. |
 
 ## 2. Install
 
@@ -28,10 +29,10 @@ npm install
 npm run dev
 ```
 
-Open **http://localhost:5173**. You should land on the settings screen with your
-league already filled in — 12 teams, $200, full PPR, 16 slots.
+Open **http://localhost:5173**. You land on the settings screen with your league
+already filled in — 12 teams, $200, full PPR, 16 slots.
 
-Sanity-check the maths if you like — all three should pass:
+Sanity-check the maths if you like — all three pass in a few seconds:
 
 ```bash
 node --experimental-strip-types src/engine/valuation.check.ts     # prices vs the workbook
@@ -39,118 +40,134 @@ node --experimental-strip-types src/state/names.check.ts          # ESPN name ma
 node --experimental-strip-types src/state/projections.check.ts    # refresh merge + safety gate
 ```
 
-## 3. Install the relay (optional, for live ESPN sync)
+## 3. Point it at your league
 
-1. Chrome → `chrome://extensions`
-2. Turn on **Developer mode** (top right)
-3. **Load unpacked** → pick the `PPR-Auction/extension` folder
-4. Reload the app tab. The settings screen should now read **Extension found**.
+Paste your league URL into **ESPN league URL** and hit **Save**. Anything with
+`leagueId=…` in it works; so does the bare number.
 
-**The port matters.** The extension only injects on `localhost:5173` and
-`localhost:4173`. Serving the app anywhere else means adding that origin to
-`host_permissions` *and* `content_scripts` in `extension/manifest.json`.
+**Private league?** ESPN needs your session cookies. Create `app/.env.local`:
 
-The relay is read-only: it watches the draft room and reports what it sees. It
-has no code path that can place a bid.
+```bash
+ESPN_S2=AEB...        # the espn_s2 cookie
+SWID={xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}
+```
+
+Get them from any logged-in ESPN tab: DevTools → Application → Cookies →
+`fantasy.espn.com`. Restart `npm run dev` after saving. They are read by the dev
+server and never reach the page.
+
+> **Why a dev server at all?** ESPN sends no CORS headers, so a browser can
+> never call it directly. `npm run dev` proxies `/espn/*` through to ESPN
+> server-side. That is the whole trick — no extension, no separate service.
+
+Then pick **Your team** from the dropdown. Budget, max bid and roster slots are
+all read off that one.
 
 ## 4. Before the draft
 
-**Confirm the league.** Teams, budget, roster and scoring come from your
-workbook export. The baselines line (`RB27 WR33 QB12 TE12`) is who the model
-expects to be *started* leaguewide — that is what every price is measured
-against.
+**Pick your shape.** The starter/bench slider is the one real dial. At **88%**
+(default) the curve is steep — big money at the top, dollar bench guys. Drag
+toward **65%** for a flatter roster. Prices re-derive as you drag, and you can
+change it mid-draft.
 
-**Pick your shape.** The starter/bench slider is the one real dial:
+**Refresh the numbers.** Projections go stale fast in August. **Refresh data**
+at the top pulls ESPN's season projections through the same proxy and rebuilds
+every ranking from them. `load a file` takes a FantasyPros CSV export or the
+JSON this repo produces, if you would rather bring your own.
 
-- **88% starters** (default) — stars and scrubs. Steep curve, big money at the
-  top, dollar bench guys.
-- **Lower it toward 65%** — flatter curve, more even roster.
-
-Watch the split bars on the right move as you drag. Nothing is committed; you
-can change it mid-draft and every price re-derives.
-
-**Refresh the numbers.** Projections go stale fast in August.
-
-- `Refresh data` → asks the extension to pull ESPN's season projections.
-- `load a file` → takes a FantasyPros CSV export or the JSON this repo
-  produces. **This path needs no extension and is the reliable one today.**
-
-Anything that comes back is checked before it is applied. A pull with too few
-players, zeroed stats, or impossible totals is refused with a reason and your
-old numbers stay put.
+Whatever arrives is checked before it is applied — too few players, zeroed
+stats, or impossible totals are refused with a reason and your old numbers
+stay. A board priced off garbage would still look completely authoritative.
 
 **Take a practice run.** *Open the board* drops you into a simulated mid-auction
-off the real player pool. Bids tick, inflation moves, the verdict flips. Learn
-where your eyes go before it counts.
+off the real player pool: bids tick, inflation moves, the verdict flips.
 
 ## 5. Draft night
 
-Start with **Start empty — I'll enter picks**, then open your ESPN draft room in
-another tab.
+Hit **Start empty — I'll enter picks**, then **ESPN live** in the top bar. It
+polls your league every three seconds.
 
-**Read the board in this order:**
+**What syncs by itself:** every completed sale, within one poll. Inflation, your
+budget, max bids, best-remaining and every price update off them.
 
-1. **The giant number** — the most you should pay for whoever is up, capped by
-   what your roster can still afford.
-2. **The verdict bar** — *Bid to $X* or *Let it go*, with the reason and the
-   player you'd buy instead with the same money.
-3. **Walk away at** — one dollar past value. When the bid passes it, you are
-   buying someone else's problem.
+**What does not:** the bid climbing right now. ESPN's draft view lists finished
+picks only — the live auction bid is not in it. So:
 
-**The three panels:**
+1. Type whoever is up into **Who's up?** and click them. The big number is your
+   max bid on them, at current inflation.
+2. Track the room with the **− / +** buttons under *Current bid*. The verdict
+   bar flips from *Bid to $X* to *Let it go* the moment it crosses your number.
+3. When they sell, the poll picks it up on its own. Nothing to type.
 
-- **My roster** — filled slots at what you paid, open slots at what the plan
-  budgets for them. The budget redistributes after every sale.
-- **Best remaining** — the best player left at each position and the dollar
-  **dropoff** to the next one. A big dropoff means act now; a small one means
-  wait, someone equivalent is coming.
-- **Who can outbid me** — every team's true max bid and what they still need.
-  Teams that can't cover the bid can't take the player from you.
+**Read the board in this order:** the giant number → the verdict bar → *walk
+away at*. Then the panels: **my roster** (what you paid, what is budgeted for
+each open slot), **best remaining** (the dollar dropoff to the next player at
+each position — big dropoff means act now), **who can outbid me** (a team that
+cannot cover the bid cannot take the player from you).
 
-**The drawer (⌃T)** — the whole pool: search, filter, sort by surplus,
-nominate, and **record a sale** when the relay isn't running. Typing sales in by
-hand gives you exactly the same maths, just slower.
+`⌃T` opens the full pool: search, filter, sort by surplus, and record a sale by
+hand if you ever need to.
 
 ## 6. Reading the numbers
 
 **Inflation runs backwards from most people's instinct.** An overpay drains
 money faster than it removes value, so **everything left gets cheaper**. A
 bargain leaves more money chasing the same value and pushes the board **up**.
-That is what the league name is about. When the room overspends early, sit still
-and let the discounts come to you.
+That is what the league name is about — when the room overspends early, sit
+still and let the discounts come to you.
 
-**Two different max bids.** The top strip's *True max bid* is your budget minus
-a dollar for every empty slot — the hard ceiling. The giant number is the most
-that *this player* is worth to you. Bid the smaller one.
+**Two different max bids.** The top strip's *true max bid* is your budget minus
+a dollar for every empty slot — a hard ceiling. The giant number is what *this
+player* is worth to you. Bid the smaller one.
 
-**Market is normalised.** Site values are published for 10-team, $2,000 leagues;
-yours is 12-team, $2,400. Every market figure on screen is scaled into your
-currency first, so "market $65" means $65 *in your league*.
+**Market is normalised.** Site values are published for 10-team, $2,000
+leagues; yours is 12-team, $2,400. Every market figure on screen is scaled into
+your currency first, so "market $65" means $65 *in your league*.
 
-**Tiers are soft, dropoffs are hard.** Tier labels come from z-scores over the
+**Tiers are soft, dropoffs are hard.** Tier labels come from z-scores across the
 whole list and shift when the list changes. The dropoff number is the honest
-version of the same idea — trust it more.
+version of the same idea.
 
-## 7. When something breaks
+## 7. A dry run without ESPN
+
+There is a stand-in server that speaks ESPN's two views and drips out a pick
+every few seconds, so the whole loop can be rehearsed offline:
+
+```bash
+node tools/fake-espn.mjs                      # terminal 1
+ESPN_ORIGIN=http://localhost:4599 npm run dev # terminal 2
+```
+
+Save league id `123`, hit **ESPN live**, and watch the board fill up.
+
+## 8. When something breaks
 
 | symptom | what to do |
 | --- | --- |
-| *Extension not found* | Reload it at `chrome://extensions`, then reload the app tab. Check you're on port 5173. |
-| Relay goes quiet mid-draft | Open the draft room console and run `window.__deflatorProbe()`. Anything showing `null` needs a new selector in `extension/content-espn.js`. Meanwhile, enter sales in the drawer. |
-| Refresh refused with a reason | That's the safety gate. The numbers you had are still in place; try the file path. |
-| Prices look wrong after a refresh | Hit `reset` next to the refresh button to return to the projections that shipped. |
-| A player is missing entirely | The relay drops names it can't match rather than guessing. Nominate him from the drawer by hand. |
+| *Couldn't reach ESPN* | The proxy lives in the dev server — make sure `npm run dev` is still running. |
+| *Not authorised* | Private league. Add `ESPN_S2` and `SWID` to `app/.env.local` and restart. |
+| *That league has no draft on it* | Wrong league id, or the draft has not been created yet. |
+| ESPN live button is disabled | No league id saved. Settings → paste the URL → Save. |
+| Sales stop arriving | Three failed polls in a row raise a banner with the reason. Keep going by recording sales in the drawer. |
+| Prices look wrong after a refresh | `reset` next to the refresh button returns to the projections that shipped. |
+| A player never appears | Names that cannot be matched are dropped rather than guessed at. Put them on the block by hand. |
 
-## 8. What is not proven yet
+## 9. Optional: the Chrome extension
 
-Two things could not be tested without a live ESPN session, and both are marked
-in the code:
+Only worth installing if you want the **live bid** relayed too, sub-second,
+instead of tracking it with − / +. `chrome://extensions` → Developer mode →
+Load unpacked → the `extension/` folder, then pick **Extension** in the top bar.
+Its draft-room selectors are unverified against a live room — see
+`extension/README.md`.
 
-- **The draft-room selectors** (`extension/content-espn.js`) — class names ESPN
-  can change. Budget one mock draft to confirm them with `__deflatorProbe()`.
-- **The projection stat-id map** (`extension/projections.js`) — verify with
-  `__deflatorRawStats()` in the service worker console after a pull.
+## 10. What is not proven yet
+
+The ESPN request shapes are written from ESPN's public views and exercised
+end-to-end against a stand-in server, but **not against live ESPN** — that
+needs a real session. On your first mock draft, check that sales arrive and that
+**Refresh data** returns a sane player count. If the refresh looks wrong, the
+stat-id map in `app/src/sync/espn.ts` is the thing to verify; `sampleStats()`
+returns the raw object from the last pull.
 
 Everything else — the pricing engine, inflation, max bids, name matching, the
-refresh merge and its gate, the extension loading and being detected — is
-covered by checks that run in seconds.
+refresh merge and its gate — is covered by checks that run in seconds.
